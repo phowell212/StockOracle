@@ -10,10 +10,8 @@ from graph import Graph
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
-# Create an instance of the Graph class
 graph_instance = Graph(data=[])
 
-# Define the layout
 app.layout = html.Div([
     html.Button("Update Graph", id="update-graph-btn"),
     html.Button("Generate CSV Data", id="generate-csv-btn"),
