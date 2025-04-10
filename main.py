@@ -1,5 +1,5 @@
 # Stock Oracle Group
-# 9/4/2025
+# 4/9/2025
 # Main control script for the stock oracle project
 
 import yfinance

@@ -1,3 +1,6 @@
+# Stock Oracle Group
+# 4/10/2025
+# Graph class
 import random
 
 class Graph:
