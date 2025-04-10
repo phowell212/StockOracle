@@ -24,8 +24,8 @@ class Graph:
             # Drift
             if i > 0:
                 current_value += random.randint(-10, 10)
-            date_str = date_obj.strftime("%Y-%m-%d")
 
+            date_str = date_obj.strftime("%Y-%m-%d")
             self.__data.append((date_str, current_value))
 
         # Write to CSV
