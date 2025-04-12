@@ -1,6 +1,6 @@
-#Author: Praneeth Sai Ummadisetty
-# Date: 04-08-2025
-# Description: This is function where a particular stock articles are fetched
+# Praneeth Sai Ummadisetty
+# 04/08/2025
+# This is function where a particular stock articles are fetched
 import requests
 
 def get_yahoo_finance_news(stock_symbol):

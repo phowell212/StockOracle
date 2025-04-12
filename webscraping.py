@@ -1,6 +1,6 @@
-#Author: Praneeth Sai Ummadisetty
-# Date: 04-08-2025
-# Description: This program is used to get the info from the internet about individual stocks and send it to predictor
+# Praneeth Sai Ummadisetty
+# 04-08-2025
+# This program is used to get the info from the internet about individual stocks and send it to predictor
 #This is a testing file where we are trying new methods to retrieve data from the web
 
 # from urllib.request import urlopen
