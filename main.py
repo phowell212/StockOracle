@@ -6,6 +6,9 @@ from dash import dcc, html, Input, Output
 import os
 import pandas as pd
 from graph import Graph
+from newsFetcher import get_yahoo_finance_news
+from urllib.request import urlopen, Request
+from predictor import predict_tomorrow
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -16,7 +19,11 @@ app.layout = html.Div([
     html.Button("Update Graph", id="update-graph-btn"),
     html.Button("Generate CSV Data", id="generate-csv-btn"),
     html.Button("Clear CSV File", id="clear-csv-btn"),
-    html.Div(id="graph-container")  # Placeholder for the graph
+    html.Button("Predict Tomorrow's Value", id="predict-btn"),
+    html.Div(id="graph-container"), # Placeholder for the graph
+    html.Div(id="prediction-container"),  # Placeholder for the prediction
+    html.Div(id="news-container"),  # Placeholder for news
+    dcc.Interval(id="news-interval", interval=1000, n_intervals=0, max_intervals=1)
 ])
 
 # Callback to regenerate the CSV file
@@ -59,39 +66,55 @@ def update_graph(n_clicks):
     else:
         return "No CSV file found. Please generate the CSV file first."
 
+# Callback to deal with the predict button
+@app.callback(
+    Output("prediction-container", "children"),
+    Input("predict-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def predict_value(n_clicks):
+    if os.path.exists("data.csv"):
+        graph_instance.read_csv()
+        prediction = predict_tomorrow(graph_instance)
+        return f"Tomorrow's predicted closing value: {prediction:.2f}"
+    return "No CSV file found. Generate data first."
 
-#Author: Praneeth Sai Ummadisetty
-# Date: 04-08-2025
-# Description: This is the main class for getting the articles from the web using scraping methods
-from newsFetcher import get_yahoo_finance_news
-from urllib.request import urlopen, Request
+@app.callback(
+    Output("news-container", "children"),
+    Input("news-interval", "n_intervals")
+)
+def update_news(n_intervals):
+    if n_intervals == 0:
+        return dash.no_update
 
-symbol = "AAPL"
-news = get_yahoo_finance_news(symbol)
-if news:
-    print(f"\n News for {symbol}:")
-    print("-" * 40)
+    symbol = "AAPL"
+    news = get_yahoo_finance_news(symbol)
+    news_elements = []
+
+    if news:
+        news_elements.append(html.H3(f"News for {symbol}:"))
+        news_elements.append(html.Hr())
+        for article in news:
+            news_elements.append(html.P(f"Article Name: {article['title']}"))
+            news_elements.append(html.P(f"Link: {article['url']}"))
+    else:
+        news_elements.append(html.P(f"No news found for {symbol}."))
+
+    headers = {'User-Agent': 'Mozilla/5.0'}
     for article in news:
-        print(f"Article Name: {article['title']}\nLink: {article['url']}\n")
-else:
-    print(f"No news found for {symbol}.")
+        try:
+            req = Request(article['url'], headers=headers)
+            page = urlopen(req)
+            url_content = page.read()
+            html_content = url_content.decode("utf-8")
+            title_index = html_content.find("<title>") + len("<title>")
+            end_index = html_content.find("</title")
+            final_title = html_content[title_index:end_index]
+            news_elements.append(html.P(f"Extracted Title: {final_title}"))
+        except Exception as e:
+            news_elements.append(html.P(f"Error fetching {article['url']}: {e}"))
 
-headers = {'User-Agent': 'Mozilla/5.0'}
-for article in news:
-    try:
-        req = Request(article['url'], headers=headers)
-        page = urlopen(req)
-        print(page)
-        url_Content = page.read()
-        # print(url_Content[:500])
-        html = url_Content.decode("utf-8")
-        title = html.find("<title>") + len("<title>")
-        endTitle = html.find("</title")
-        print(title,endTitle)
-        finalTitle = html[title:endTitle]
-        print(finalTitle)
-    except Exception as e:
-        print(f"Error fetching {article['url']}: {e}")
+    return news_elements
 
 if __name__ == "__main__":
     app.run(debug=True)

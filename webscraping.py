@@ -46,30 +46,41 @@ for article in articles[:5]:
 '''
 
 #Scraping using Selenium
+import time
+import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
-import time
+
+# Configure logger to write to a log file
+logging.basicConfig(
+    filename='news.log',
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 options = webdriver.ChromeOptions()
 options.add_argument("--headless")
 options.add_argument("--disable-gpu")
 options.add_argument("--no-sandbox")
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
 url = "https://finance.yahoo.com/quote/AAPL/news"
 driver.get(url)
 time.sleep(3)
 articles = driver.find_elements(By.CSS_SELECTOR, "li.js-stream-content")
-print(f"\nLatest news for Apple (AAPL):\n" + "-"*40)
+
+logger.info("\nLatest news for Apple (AAPL):\n" + "-" * 40)
 for article in articles[:5]:  # Limit to top 5 news items
     try:
         title = article.find_element(By.TAG_NAME, "h3").text.strip()
         link = article.find_element(By.TAG_NAME, "a").get_attribute("href")
-        print(f"\n📰 {title}\n🔗 {link}")
-    except:
-        continue
-
+        logger.info(f"\n📰 {title}\n🔗 {link}")
+    except Exception as e:
+        logger.error(f"Error processing an article: {e}")
 driver.quit()
 
 
