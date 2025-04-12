@@ -17,10 +17,10 @@ def predict_tomorrow(graph_instance):
     data['Date_ordinal'] = data['Date'].map(datetime.datetime.toordinal)
 
     # Train the linear regression model using all historical data
-    X = data[['Date_ordinal']]
+    x = data[['Date_ordinal']]
     y = data['Value']
     model = LinearRegression()
-    model.fit(X, y)
+    model.fit(x, y)
 
     # Predict tomorrow's value based on the model
     last_date = data['Date'].max()
