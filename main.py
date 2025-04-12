@@ -59,5 +59,39 @@ def update_graph(n_clicks):
     else:
         return "No CSV file found. Please generate the CSV file first."
 
+
+#Author: Praneeth Sai Ummadisetty
+# Date: 04-08-2025
+# Description: This is the main class for getting the articles from the web using scraping methods
+from newsFetcher import get_yahoo_finance_news
+from urllib.request import urlopen, Request
+
+symbol = "AAPL"
+news = get_yahoo_finance_news(symbol)
+if news:
+    print(f"\n News for {symbol}:")
+    print("-" * 40)
+    for article in news:
+        print(f"Article Name: {article['title']}\nLink: {article['url']}\n")
+else:
+    print(f"No news found for {symbol}.")
+
+headers = {'User-Agent': 'Mozilla/5.0'}
+for article in news:
+    try:
+        req = Request(article['url'], headers=headers)
+        page = urlopen(req)
+        print(page)
+        url_Content = page.read()
+        # print(url_Content[:500])
+        html = url_Content.decode("utf-8")
+        title = html.find("<title>") + len("<title>")
+        endTitle = html.find("</title")
+        print(title,endTitle)
+        finalTitle = html[title:endTitle]
+        print(finalTitle)
+    except Exception as e:
+        print(f"Error fetching {article['url']}: {e}")
+
 if __name__ == "__main__":
     app.run(debug=True)
