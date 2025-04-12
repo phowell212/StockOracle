@@ -1,14 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[3]:
-
-
+# Stock Oracle Group
+# 4/11/2025
+# Script to fetch and save stock data using yfinance
 import yfinance as yf
-import pandas as pd
-
-
-# In[4]:
 
 
 def fetch_and_save_data(ticker: str, filename: str = "data.csv"):
@@ -24,20 +17,9 @@ def fetch_and_save_data(ticker: str, filename: str = "data.csv"):
     df.columns = ["Date", "Value"]
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
+    # Cast to int to match the graph class format
+    df["Value"] = df["Value"].round().astype(int)
+
     # Save to CSV
     df.to_csv(filename, index=False)
     print(f"Saved {len(df)} rows to {filename}")
-
-
-# In[5]:
-
-
-if __name__ == "__main__":
-    fetch_and_save_data("AAPL")
-
-
-# In[ ]:
-
-
-
-

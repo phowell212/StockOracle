@@ -9,6 +9,7 @@ from graph import Graph
 from newsFetcher import get_yahoo_finance_news
 from urllib.request import urlopen, Request
 from predictor import predict_tomorrow
+from generate_data import fetch_and_save_data  # New import for real data
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -20,13 +21,14 @@ app.layout = html.Div([
     html.Button("Generate CSV Data", id="generate-csv-btn"),
     html.Button("Clear CSV File", id="clear-csv-btn"),
     html.Button("Predict Tomorrow's Value", id="predict-btn"),
-    html.Div(id="graph-container"), # Placeholder for the graph
+    html.Button("Load Real Stock Data", id="load-real-data-btn"),  # New button
+    html.Div(id="graph-container"),  # Placeholder for the graph
     html.Div(id="prediction-container"),  # Placeholder for the prediction
     html.Div(id="news-container"),  # Placeholder for news
     dcc.Interval(id="news-interval", interval=1000, n_intervals=0, max_intervals=1)
 ])
 
-# Callback to regenerate the CSV file
+# Callback to regenerate CSV data using generated fake data
 @app.callback(
     Output("graph-container", "children", allow_duplicate=True),
     Input("generate-csv-btn", "n_clicks"),
@@ -66,7 +68,7 @@ def update_graph(n_clicks):
     else:
         return "No CSV file found. Please generate the CSV file first."
 
-# Callback to deal with the predict button
+# Callback to generate prediction for tomorrow's value
 @app.callback(
     Output("prediction-container", "children"),
     Input("predict-btn", "n_clicks"),
@@ -78,6 +80,17 @@ def predict_value(n_clicks):
         prediction = predict_tomorrow(graph_instance)
         return f"Tomorrow's predicted closing value: {prediction:.2f}"
     return "No CSV file found. Generate data first."
+
+# Callback to load real stock data using generate_data.py
+@app.callback(
+    Output("graph-container", "children", allow_duplicate=True),
+    Input("load-real-data-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def load_real_data(n_clicks):
+    ticker = "AAPL"
+    fetch_and_save_data(ticker, "data.csv")
+    return "Real stock data loaded. Click 'Update Graph' to display the graph."
 
 # Callback to fetch and display news
 @app.callback(
