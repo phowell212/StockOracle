@@ -1,3 +1,6 @@
+# Stock Oracle Group
+# 4/9/2025
+# File for the predictor function
 import datetime
 import pandas as pd
 from sklearn.linear_model import LinearRegression
