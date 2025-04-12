@@ -79,6 +79,7 @@ def predict_value(n_clicks):
         return f"Tomorrow's predicted closing value: {prediction:.2f}"
     return "No CSV file found. Generate data first."
 
+# Callback to fetch and display news
 @app.callback(
     Output("news-container", "children"),
     Input("news-interval", "n_intervals")
