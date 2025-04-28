@@ -1,8 +1,6 @@
 # Stock Oracle Group
 # 4/10/2025
 # Graph class
-import random
-import datetime
 
 class Graph:
     def __init__(self, data=None):
