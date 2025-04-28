@@ -79,7 +79,6 @@ def update_news(ticker):
         news_elements.append(html.Hr())
         headers = {'User-Agent': 'Mozilla/5.0'}
         for article in news:
-            news_elements.append(html.P(f"Article Name: {article['title']}"))
             news_elements.append(html.P(f"Link: {article['url']}"))
             try:
                 req = Request(article['url'], headers=headers)
