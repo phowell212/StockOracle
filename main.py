@@ -34,11 +34,12 @@ app.layout = html.Div([
 # Callback to load real stock data using ticker input, update CSV and display graph
 @app.callback(
     Output("graph-container", "children", allow_duplicate=True),
-    Input("load-real-data-btn", "n_clicks"),
+    [Input("load-real-data-btn", "n_clicks"),
+     Input("ticker-input", "n_submit")],
     State("ticker-input", "value"),
     prevent_initial_call=True
 )
-def load_real_data(n_clicks, ticker):
+def load_real_data(n_clicks, n_submit, ticker):
     ticker = ticker if ticker else "AAPL"
     fetch_and_save_data(ticker, "data.csv")
     if os.path.exists("data.csv"):
@@ -64,7 +65,7 @@ def predict_value(n_clicks):
         return f"Tomorrow's predicted closing value: {prediction:.2f}"
     return "No CSV file found. Load data first."
 
-# Callback to fetch and display news based on ticker input change with formatted extracted titles
+# Callback to fetch and display news as clickable links using the extracted titles
 @app.callback(
     Output("news-container", "children"),
     Input("ticker-input", "value"),
@@ -79,7 +80,6 @@ def update_news(ticker):
         news_elements.append(html.Hr())
         headers = {'User-Agent': 'Mozilla/5.0'}
         for article in news:
-            news_elements.append(html.P(f"Link: {article['url']}"))
             try:
                 req = Request(article['url'], headers=headers)
                 page = urlopen(req)
@@ -87,9 +87,11 @@ def update_news(ticker):
                 title_index = html_content.find("<title>") + len("<title>")
                 end_index = html_content.find("</title")
                 final_title = html_content[title_index: end_index]
-                news_elements.append(html.P(f"Extracted Title: {final_title}"))
             except Exception as e:
-                news_elements.append(html.P(f"Error fetching {article['url']}: {e}"))
+                final_title = "Error fetching title"
+            news_elements.append(
+                html.A(final_title, href=article['url'], target="_blank", style={"display": "block", "marginBottom": "10px"})
+            )
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
     return news_elements
