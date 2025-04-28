@@ -64,7 +64,7 @@ def predict_value(n_clicks):
         return f"Tomorrow's predicted closing value: {prediction:.2f}"
     return "No CSV file found. Load data first."
 
-# Callback to fetch and display news based on ticker input change
+# Callback to fetch and display news based on ticker input change with formatted extracted titles
 @app.callback(
     Output("news-container", "children"),
     Input("ticker-input", "value"),
@@ -74,30 +74,25 @@ def update_news(ticker):
     ticker = ticker if ticker else "AAPL"
     news = get_yahoo_finance_news(ticker)
     news_elements = []
-
     if news:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
         news_elements.append(html.Hr())
+        headers = {'User-Agent': 'Mozilla/5.0'}
         for article in news:
             news_elements.append(html.P(f"Article Name: {article['title']}"))
             news_elements.append(html.P(f"Link: {article['url']}"))
+            try:
+                req = Request(article['url'], headers=headers)
+                page = urlopen(req)
+                html_content = page.read().decode("utf-8")
+                title_index = html_content.find("<title>") + len("<title>")
+                end_index = html_content.find("</title")
+                final_title = html_content[title_index: end_index]
+                news_elements.append(html.P(f"Extracted Title: {final_title}"))
+            except Exception as e:
+                news_elements.append(html.P(f"Error fetching {article['url']}: {e}"))
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
-
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    for article in news:
-        try:
-            req = Request(article['url'], headers=headers)
-            page = urlopen(req)
-            url_content = page.read()
-            html_content = url_content.decode("utf-8")
-            title_index = html_content.find("<title>") + len("<title>")
-            end_index = html_content.find("</title")
-            final_title = html_content[title_index:end_index]
-            news_elements.append(html.P(f"Extracted Title: {final_title}"))
-        except Exception as e:
-            news_elements.append(html.P(f"Error fetching {article['url']}: {e}"))
-
     return news_elements
 
 if __name__ == "__main__":
