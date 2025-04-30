@@ -73,11 +73,29 @@ def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
     return preds
 
 def check_confidence(graph_instance: Graph, days: int, return_graph=False):
+    full_pred = predict_days_ahead(graph_instance, days)
 
-    confidence = 0.0
+    # Convert both graphs' data to pandas DataFrames
+    pred_df = pd.DataFrame(full_pred.data, columns=['Date', 'Value'])
+    real_df = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
+
+    # Chop off all but the last days of the data
+    pred_df_tail = pred_df.tail(days)
+    real_df_tail = real_df.tail(days)
+
+    # Calculate areas under both curves using trapezoidal integration
+    pred_area = np.trapezoid(pred_df_tail['Value'])
+    real_area = np.trapezoid(real_df_tail['Value'])
+
+    # Calculate confidence as 1 - normalized absolute difference between areas
+    area_diff = abs(pred_area - real_area)
+    max_area = max(pred_area, real_area)
+    confidence = 1 - (area_diff / max_area)
+
+    # Ensure confidence is between 0 and 1
+    confidence = max(0.0, min(1.0, confidence))
 
     if return_graph:
-        full_pred = predict_days_ahead(graph_instance, days)
         return confidence, full_pred
 
     return confidence
