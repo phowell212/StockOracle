@@ -5,6 +5,7 @@ import dash
 from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
+import predictor
 from graph import Graph
 from newsFetcher import get_yahoo_finance_news
 from urllib.request import urlopen, Request
@@ -95,6 +96,69 @@ def update_news(ticker):
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
     return news_elements
+
+# Extend the app layout with an input for number of days and separate containers for graph and text.
+app.layout = html.Div([
+    dcc.Input(
+        id="ticker-input",
+        type="text",
+        placeholder="Enter ticker symbol",
+        style={"marginRight": "10px"}
+    ),
+    html.Button("Load Real Data", id="load-real-data-btn"),
+    html.Button("Predict Tomorrow's Value", id="predict-btn"),
+    html.Div(id="graph-container"),  # existing graph container
+    html.Div(id="prediction-container"),  # existing prediction container
+    dcc.Input(
+        id="days-input",
+        type="text",
+        placeholder="Enter number of days",
+        style={"marginTop": "20px", "marginRight": "10px"}
+    ),
+    html.Div(id="confidence-text", style={"marginTop": "10px"}),
+    html.Div(id="confidence-graph-container", style={"marginTop": "20px"}),
+    html.Div(id="news-container"),  # news container remains the same
+    dcc.Interval(id="news-interval", interval=1000, n_intervals=0, max_intervals=1)
+])
+
+
+# Callback to check prediction confidence over a number of days.
+@app.callback(
+    [Output("confidence-graph-container", "children"),
+     Output("confidence-text", "children")],
+    Input("days-input", "n_submit"),
+    State("days-input", "value"),
+    prevent_initial_call=True
+)
+def check_confidence_callback(n_submit, days):
+    try:
+        days = int(days)
+    except Exception:
+        return "Invalid input for number of days.", ""
+
+    if not os.path.exists("data.csv"):
+        return "Load real data first.", ""
+
+    # Ensure the real data is loaded from CSV.
+    graph_instance.read_csv()
+
+    # Create a builder graph and check the confidence.
+    confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, return_graph=True)
+
+    # Make a figure with the two graphs overlayed on top of each other.
+    data_predicted = pd.DataFrame(prediction_graph_instance.data, columns=['Date', 'Value'])
+    data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
+    figure = {
+        "data": [
+            {"x": data_predicted["Date"], "y": data_predicted["Value"], "type": "line", "name": "Predicted"},
+            {"x": data_real["Date"], "y": data_real["Value"], "type": "line", "name": "Real"}
+        ],
+        "layout": {"title": f"Confidence for {days} days ahead"}
+    }
+
+    graph_component = dcc.Graph(figure=figure)
+    confidence_text = f"Confidence Interval: {confidence * 100:.2f}%"
+    return graph_component, confidence_text
 
 if __name__ == "__main__":
     app.run(debug=True)

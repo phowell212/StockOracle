@@ -1,30 +1,83 @@
 # Stock Oracle Group
-# 4/9/2025
-# File for the predictor function
+# 4/30/2025
+# File for the predictor function and related functions
+
 import datetime
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from graph import Graph
 
+# how many prior days to use in our autoregressive model
+LAG_DAYS = 30
 
-def predict_tomorrow(graph_instance):
-    # Ensure the graph data is loaded
+def _build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
+    df = pd.DataFrame({'y': series})
+    for i in range(1, lags + 1):
+        df[f'lag_{i}'] = df['y'].shift(i)
+    return df.dropna()
+
+def predict_tomorrow(graph_instance: Graph) -> float:
     if not graph_instance.data:
         graph_instance.read_csv()
 
-    # Create a DataFrame
-    data = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
-    data['Date'] = pd.to_datetime(data['Date'])
-    data['Date_ordinal'] = data['Date'].map(datetime.datetime.toordinal)
+    # Convert graph data to DataFrame
+    df = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    series = df['Value']
 
-    # Train the linear regression model using all historical data
-    x = data[['Date_ordinal']]
-    y = data['Value']
-    model = LinearRegression()
-    model.fit(x, y)
+    # get the last lagged values
+    lagged = _build_lagged_df(series, LAG_DAYS)
+    x = lagged[[f'lag_{i}' for i in range(1, LAG_DAYS+1)]].to_numpy()
+    y = lagged['y'].to_numpy()
 
-    # Predict tomorrow's value based on the model
-    last_date = data['Date'].max()
-    tomorrow = last_date + pd.Timedelta(days=1)
-    prediction = model.predict([[tomorrow.toordinal()]])
+    # fit a linear regression model
+    model = LinearRegression().fit(x, y)
+    last_vals = series.iloc[-LAG_DAYS:].to_numpy().reshape(1, -1)
+    return float(model.predict(last_vals)[0])
 
-    return prediction[0]
+def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
+    graph_instance.read_csv()
+    full = list(graph_instance.data)
+    n = len(full)
+
+    # Make a new graph for the predictions
+    days = max(1, min(days, n-1))
+    chopped = full[: n - days ]
+    preds = Graph(data=list(chopped))
+
+    # Get start and end dates from original graph data
+    orig_start = datetime.datetime.strptime(graph_instance.data[0][0], "%Y-%m-%d")
+    orig_end = datetime.datetime.strptime(graph_instance.data[-1][0], "%Y-%m-%d")
+
+    # Generate predictions until we reach or exceed the end date
+    while True:
+        last_date = preds.data[-1][0]
+        if isinstance(last_date, str):
+            last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
+
+        if last_date >= orig_end:
+            break
+
+        val = predict_tomorrow(preds)
+        nxt = last_date + datetime.timedelta(days=1)
+        preds.data.append((nxt.strftime("%Y-%m-%d"), val))
+
+    # Remove any predictions before the original start date
+    preds.data = [
+        (date, value) for date, value in preds.data
+        if datetime.datetime.strptime(date, "%Y-%m-%d") >= orig_start
+    ]
+
+    return preds
+
+def check_confidence(graph_instance: Graph, days: int, return_graph=False):
+
+    confidence = 0.0
+
+    if return_graph:
+        full_pred = predict_days_ahead(graph_instance, days)
+        return confidence, full_pred
+
+    return confidence

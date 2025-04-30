@@ -24,3 +24,7 @@ class Graph:
     @property
     def data(self):
         return self.__data
+
+    @data.setter
+    def data(self, value):
+        self.__data = value
