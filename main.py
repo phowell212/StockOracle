@@ -2,6 +2,7 @@
 # 4/9/2025
 # Main control script for the stock oracle project
 import dash
+import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
@@ -13,48 +14,83 @@ from predictor import predict_tomorrow
 from fetch_stock_data import fetch_and_save_data
 
 # Initialize the Dash app
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
+    suppress_callback_exceptions=True,)
 
 graph_instance = Graph(data=[])
-app.layout = html.Div([
+app.layout = dbc.Container(fluid=True, children=[
+
+    # Navbar
+    dbc.NavbarSimple(
+        brand="📈 Stock Oracle",
+        brand_href="#",
+        color="dark",
+        dark=True,
+    ),
 
     # Header
-    html.H1("Stock Oracle"),
-    html.H2("Price prediction and model effectiveness simulation"),
+    dbc.Row(
+        dbc.Col([
+            html.H1("Price Prediction & Model Simulation", className="mt-4 mb-2"),
+            html.H6("Tomorrow’s forecast, confidence intervals, and latest news", className="mb-4"),
+        ]),
+    ),
 
-    # Ticker input section
-    html.Div([
-        dcc.Input(
-            id="ticker-input",
-            type="text",
-            placeholder="Enter ticker symbol",
-            style={"marginRight": "10px"}
-        ),
-        html.Button("Load Real Data", id="load-real-data-btn"),
+    # Body
+    dbc.Row([
+
+        # Left column: ticker + news
+        dbc.Col(width=4, children=[
+            dbc.Card([
+                dbc.CardBody([
+                    html.Label("Ticker Symbol"),
+                    dcc.Input(id="ticker-input", placeholder="e.g. AAPL", className="form-control mb-2"),
+                    dbc.Button("Load Data", id="load-real-data-btn", color="primary", className="mb-3"),
+
+                    html.Div(id="news-container")
+                ])
+            ], className="mb-4")
+        ]),
+
+        # Right column: main graph + prediction
+        dbc.Col(width=8, children=[
+            dcc.Store(id='data-loaded-store', data=False),
+            html.Div(id='price-prediction-section', children=[
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Historical Price", className="card-title"),
+                        html.Div(id="graph-container"),
+                        html.H5("Tomorrow's Prediction", className="mt-4"),
+                        html.Div(id="prediction-container"),
+                    ])
+                ])
+            ], style={'display': 'none'})
+        ])
+    ], className="mb-5"),
+
+    dbc.Row([
+
+        # Left column: days ahead + confidence
+        dbc.Col(width=4, children=[
+            dbc.Card([
+                dbc.CardBody([
+                    html.Label("Days Ahead"),
+                    dcc.Input(id="days-input", placeholder="Enter number of days", className="form-control mb-2"),
+                    dbc.Button("Check Confidence", id="check-confidence-btn", color="secondary"),
+                    html.Div(id="confidence-text", className="mt-3"),
+                ])
+            ])
+        ]),
+
+        # Right column: confidence graph
+        dbc.Col(width=8, children=[
+            html.Div(id="confidence-graph-container")
+        ]),
     ]),
 
-    # Graph and prediction containers
-    html.Div(id="graph-container"),
-    html.Div(id="prediction-container"),
+    # hidden interval to trigger news on page load
+    dcc.Interval(id="news-interval", interval=1_000, n_intervals=0, max_intervals=1),
 
-    # Confidence section
-    html.Div([
-        dcc.Input(
-            id="days-input",
-            type="text",
-            placeholder="Enter number of days",
-            style={"marginRight": "10px"}
-        ),
-        html.Button("Generate Prediction", id="check-confidence-btn"),
-    ], style={"marginTop": "20px"}),
-
-    # Confidence results
-    html.Div(id="confidence-text", style={"marginTop": "10px"}),
-    html.Div(id="confidence-graph-container", style={"marginTop": "20px"}),
-
-    # News section
-    html.Div(id="news-container"),
-    dcc.Interval(id="news-interval", interval=1000, n_intervals=0, max_intervals=1)
 ])
 
 # Callback for data fetching and graph generation
@@ -93,24 +129,23 @@ def check_confidence_callback(n_clicks, n_submit, days):
     if not days:
         return "Please enter number of days.", "", ""
 
+    # Validate days input
     try:
         days = int(days)
     except ValueError:
         return "Invalid input for number of days.", "", ""
 
-    # Ensure the real data is loaded from CSV
     graph_instance.read_csv()
 
     # Get tomorrow's prediction
     prediction_text = f"Tomorrow's predicted closing value: {predict_tomorrow(graph_instance):.2f}"
-
-    # Get confidence and prediction graph
     confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, return_graph=True)
 
     # Create DataFrames for visualization
     data_predicted = pd.DataFrame(prediction_graph_instance.data, columns=['Date', 'Value'])
     data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
 
+    # Create a figure from the DataFrames
     figure = {
         "data": [
             {"x": data_predicted["Date"], "y": data_predicted["Value"], "type": "line", "name": "Predicted"},
@@ -122,6 +157,7 @@ def check_confidence_callback(n_clicks, n_submit, days):
         }
     }
 
+    # Turn the figure into a Dash graph component
     graph_component = dcc.Graph(figure=figure)
     confidence_text = f"Confidence Interval: {confidence * 100:.2f}%"
 
@@ -135,8 +171,14 @@ def check_confidence_callback(n_clicks, n_submit, days):
     prevent_initial_call=True
 )
 def update_news(ticker):
-    ticker = ticker if ticker else "AAPL"
+
+    if not ticker:
+        return html.P("Please enter a ticker symbol.")
+
+    # Fetch news for the ticker
     news = get_yahoo_finance_news(ticker)
+
+    # Turn the news into a Dash component
     news_elements = []
     if news:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
@@ -158,7 +200,21 @@ def update_news(ticker):
             )
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
+
     return news_elements
+
+# Callback for object visibility
+@app.callback(
+    Output('price-prediction-section', 'style'),
+    [Input('load-real-data-btn', 'n_clicks')],
+    [State('ticker-input', 'value')],
+    prevent_initial_call=True
+)
+def toggle_price_section(n_clicks, ticker):
+    if ticker and os.path.exists('data.csv'):
+        return {'display': 'block'}
+
+    return {'display': 'none'}
 
 
 if __name__ == "__main__":
