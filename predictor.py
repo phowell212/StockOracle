@@ -11,7 +11,7 @@ from graph import Graph
 # how many prior days to use in our autoregressive model
 LAG_DAYS = 30
 
-def _build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
+def build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
     df = pd.DataFrame({'y': series})
     for i in range(1, lags + 1):
         df[f'lag_{i}'] = df['y'].shift(i)
@@ -28,7 +28,7 @@ def predict_tomorrow(graph_instance: Graph) -> float:
     series = df['Value']
 
     # get the last lagged values
-    lagged = _build_lagged_df(series, LAG_DAYS)
+    lagged = build_lagged_df(series, LAG_DAYS)
     x = lagged[[f'lag_{i}' for i in range(1, LAG_DAYS+1)]].to_numpy()
     y = lagged['y'].to_numpy()
 

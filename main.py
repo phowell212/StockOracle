@@ -7,10 +7,10 @@ import os
 import pandas as pd
 import predictor
 from graph import Graph
-from newsFetcher import get_yahoo_finance_news
+from fetch_stock_news import get_yahoo_finance_news
 from urllib.request import urlopen, Request
 from predictor import predict_tomorrow
-from generate_data import fetch_and_save_data
+from fetch_stock_data import fetch_and_save_data
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
