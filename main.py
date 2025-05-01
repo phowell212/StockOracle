@@ -17,6 +17,11 @@ app = dash.Dash(__name__)
 
 graph_instance = Graph(data=[])
 app.layout = html.Div([
+
+    # Header
+    html.H1("Stock Oracle"),
+    html.H2("Price prediction and model effectiveness simulation"),
+
     # Ticker input section
     html.Div([
         dcc.Input(
