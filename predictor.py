@@ -1,7 +1,6 @@
 # Stock Oracle Group
 # 4/30/2025
 # File for the predictor function and related functions
-
 import datetime
 import numpy as np
 import pandas as pd
@@ -35,6 +34,7 @@ def predict_tomorrow(graph_instance: Graph) -> float:
     # fit a linear regression model
     model = LinearRegression().fit(x, y)
     last_vals = series.iloc[-LAG_DAYS:].to_numpy().reshape(1, -1)
+
     return float(model.predict(last_vals)[0])
 
 def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
@@ -44,33 +44,32 @@ def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
 
     # Make a new graph for the predictions
     days = max(1, min(days, n-1))
-    chopped = full[: n - days ]
-    preds = Graph(data=list(chopped))
+    predictions = Graph(data=list(full[: n - days ]))
 
     # Get start and end dates from original graph data
-    orig_start = datetime.datetime.strptime(graph_instance.data[0][0], "%Y-%m-%d")
-    orig_end = datetime.datetime.strptime(graph_instance.data[-1][0], "%Y-%m-%d")
+    origin_start = datetime.datetime.strptime(graph_instance.data[0][0], "%Y-%m-%d")
+    origin_end = datetime.datetime.strptime(graph_instance.data[-1][0], "%Y-%m-%d")
 
     # Generate predictions until we reach or exceed the end date
     while True:
-        last_date = preds.data[-1][0]
+        last_date = predictions.data[-1][0]
         if isinstance(last_date, str):
             last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
 
-        if last_date >= orig_end:
+        if last_date >= origin_end:
             break
 
-        val = predict_tomorrow(preds)
-        nxt = last_date + datetime.timedelta(days=1)
-        preds.data.append((nxt.strftime("%Y-%m-%d"), val))
+        val = predict_tomorrow(predictions)
+        next_val = last_date + datetime.timedelta(days=1)
+        predictions.data.append((next_val.strftime("%Y-%m-%d"), val))
 
     # Remove any predictions before the original start date
-    preds.data = [
-        (date, value) for date, value in preds.data
-        if datetime.datetime.strptime(date, "%Y-%m-%d") >= orig_start
+    predictions.data = [
+        (date, value) for date, value in predictions.data
+        if datetime.datetime.strptime(date, "%Y-%m-%d") >= origin_start
     ]
 
-    return preds
+    return predictions
 
 def check_confidence(graph_instance: Graph, days: int, return_graph=False):
     full_pred = predict_days_ahead(graph_instance, days)

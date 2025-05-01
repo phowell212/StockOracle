@@ -26,7 +26,6 @@ app.layout = html.Div([
             style={"marginRight": "10px"}
         ),
         html.Button("Load Real Data", id="load-real-data-btn"),
-        html.Button("Predict Tomorrow's Value", id="predict-btn"),
     ]),
 
     # Graph and prediction containers
@@ -53,7 +52,7 @@ app.layout = html.Div([
     dcc.Interval(id="news-interval", interval=1000, n_intervals=0, max_intervals=1)
 ])
 
-
+# Callback for data fetching and graph generation
 @app.callback(
     Output("graph-container", "children"),
     [Input("load-real-data-btn", "n_clicks"),
@@ -75,6 +74,7 @@ def load_real_data(n_clicks, n_submit, ticker):
     return "No CSV file found. Please try again."
 
 
+# Callback for value prediction
 @app.callback(
     [Output("confidence-graph-container", "children"),
      Output("confidence-text", "children"),
@@ -93,15 +93,11 @@ def check_confidence_callback(n_clicks, n_submit, days):
     except ValueError:
         return "Invalid input for number of days.", "", ""
 
-    if not os.path.exists("data.csv"):
-        return "Load real data first.", "", ""
-
     # Ensure the real data is loaded from CSV
     graph_instance.read_csv()
 
     # Get tomorrow's prediction
-    tomorrow_pred = predict_tomorrow(graph_instance)
-    prediction_text = f"Tomorrow's predicted closing value: {tomorrow_pred:.2f}"
+    prediction_text = f"Tomorrow's predicted closing value: {predict_tomorrow(graph_instance):.2f}"
 
     # Get confidence and prediction graph
     confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, return_graph=True)
@@ -127,6 +123,7 @@ def check_confidence_callback(n_clicks, n_submit, days):
     return graph_component, confidence_text, prediction_text
 
 
+# Callback for news updates
 @app.callback(
     Output("news-container", "children"),
     Input("ticker-input", "value"),
