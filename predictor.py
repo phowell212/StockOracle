@@ -7,16 +7,13 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from graph import Graph
 
-# how many prior days to use in our autoregressive model
-LAG_DAYS = 30
-
 def build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
     df = pd.DataFrame({'y': series})
     for i in range(1, lags + 1):
         df[f'lag_{i}'] = df['y'].shift(i)
     return df.dropna()
 
-def predict_tomorrow(graph_instance: Graph) -> float:
+def predict_tomorrow(graph_instance: Graph, lag_days) -> float:
     if not graph_instance.data:
         graph_instance.read_csv()
 
@@ -27,17 +24,17 @@ def predict_tomorrow(graph_instance: Graph) -> float:
     series = df['Value']
 
     # get the last lagged values
-    lagged = build_lagged_df(series, LAG_DAYS)
-    x = lagged[[f'lag_{i}' for i in range(1, LAG_DAYS+1)]].to_numpy()
+    lagged = build_lagged_df(series, lag_days)
+    x = lagged[[f'lag_{i}' for i in range(1, lag_days+1)]].to_numpy()
     y = lagged['y'].to_numpy()
 
     # fit a linear regression model
     model = LinearRegression().fit(x, y)
-    last_vals = series.iloc[-LAG_DAYS:].to_numpy().reshape(1, -1)
+    last_vals = series.iloc[-lag_days:].to_numpy().reshape(1, -1)
 
     return float(model.predict(last_vals)[0])
 
-def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
+def predict_days_ahead(graph_instance: Graph, days: int, lag_days: int) -> Graph:
     graph_instance.read_csv()
     full = list(graph_instance.data)
     n = len(full)
@@ -59,7 +56,7 @@ def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
         if last_date >= origin_end:
             break
 
-        val = predict_tomorrow(predictions)
+        val = predict_tomorrow(predictions, lag_days)
         next_val = last_date + datetime.timedelta(days=1)
         predictions.data.append((next_val.strftime("%Y-%m-%d"), val))
 
@@ -71,8 +68,8 @@ def predict_days_ahead(graph_instance: Graph, days: int) -> Graph:
 
     return predictions
 
-def check_confidence(graph_instance: Graph, days: int, return_graph=False):
-    full_pred = predict_days_ahead(graph_instance, days)
+def check_confidence(graph_instance: Graph, days: int, lag_days: int, return_graph=False):
+    full_pred = predict_days_ahead(graph_instance, days, lag_days)
 
     # Convert both graphs' data to pandas DataFrames
     pred_df = pd.DataFrame(full_pred.data, columns=['Date', 'Value'])

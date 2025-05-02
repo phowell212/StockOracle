@@ -74,8 +74,10 @@ app.layout = dbc.Container(fluid=True, children=[
         dbc.Col(width=4, children=[
             dbc.Card([
                 dbc.CardBody([
-                    html.Label("Days Ahead"),
-                    dcc.Input(id="days-input", placeholder="Enter number of days", className="form-control mb-2"),
+                    html.Label("Divergence Point (Days Behind Today)"),
+                    dcc.Input(id="past-days-input", placeholder="Enter number of days", className="form-control mb-2"),
+                    html.Label("Days Used in Predictions"),
+                    dcc.Input(id="lag-days-input", placeholder="Enter number of days (Recommended: 5)", className="form-control mb-2"),
                     dbc.Button("Check Confidence", id="check-confidence-btn", color="secondary"),
                     html.Div(id="confidence-text", className="mt-3"),
                 ])
@@ -121,48 +123,52 @@ def load_real_data(n_clicks, n_submit, ticker):
      Output("confidence-text", "children"),
      Output("prediction-container", "children")],
     [Input("check-confidence-btn", "n_clicks"),
-     Input("days-input", "n_submit")],
-    [State("days-input", "value")],
+     Input("past-days-input", "n_submit")],
+    [State("past-days-input", "value"),
+     State("lag-days-input", "value")],
     prevent_initial_call=True
 )
-def check_confidence_callback(n_clicks, n_submit, days):
+def check_confidence_callback(n_clicks, n_submit, days, lag_days):
     if not days:
         return "Please enter number of days.", "", ""
 
-    # Validate days input
+    if not os.path.exists("data.csv"):
+        return "Load real data first.", "", ""
+
+    # Validate inputs
     try:
         days = int(days)
+        # Use half of days as default if lag_days not provided
+        lag_days = int(lag_days) if lag_days else max(1, days // 2)
     except ValueError:
-        return "Invalid input for number of days.", "", ""
+        return "Invalid input: Please enter valid numbers.", "", ""
 
+    # Read data and generate predictions
     graph_instance.read_csv()
+    prediction_text = f"Tomorrow's predicted closing value: {predict_tomorrow(graph_instance, lag_days):.2f}"
 
-    # Get tomorrow's prediction
-    prediction_text = f"Tomorrow's predicted closing value: {predict_tomorrow(graph_instance):.2f}"
-    confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, return_graph=True)
+    try:
+        confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, lag_days, return_graph=True)
 
-    # Create DataFrames for visualization
-    data_predicted = pd.DataFrame(prediction_graph_instance.data, columns=['Date', 'Value'])
-    data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
+        # Create visualization DataFrames
+        data_predicted = pd.DataFrame(prediction_graph_instance.data, columns=['Date', 'Value'])
+        data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
 
-    # Create a figure from the DataFrames
-    figure = {
-        "data": [
-            {"x": data_predicted["Date"], "y": data_predicted["Value"], "type": "line", "name": "Predicted"},
-            {"x": data_real["Date"], "y": data_real["Value"], "type": "line", "name": "Real"}
-        ],
-        "layout": {
-            "title": f"Prediction for {days} days ahead",
-            "showlegend": True
+        figure = {
+            "data": [
+                {"x": data_predicted["Date"], "y": data_predicted["Value"], "type": "line", "name": "Predicted"},
+                {"x": data_real["Date"], "y": data_real["Value"], "type": "line", "name": "Real"}
+            ],
+            "layout": {
+                "title": f"Prediction for {days} days behind today (using {lag_days} lag days)",
+                "showlegend": True
+            }
         }
-    }
 
-    # Turn the figure into a Dash graph component
-    graph_component = dcc.Graph(figure=figure)
-    confidence_text = f"Confidence Interval: {confidence * 100:.2f}%"
+        return dcc.Graph(figure=figure), f"Confidence Interval: {confidence * 100:.2f}%", prediction_text
 
-    return graph_component, confidence_text, prediction_text
-
+    except Exception as e:
+        return f"Error generating predictions: {str(e)}", "", ""
 
 # Callback for news updates
 @app.callback(
