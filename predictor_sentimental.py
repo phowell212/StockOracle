@@ -23,8 +23,7 @@ class PredictorSentimental:
             count += 1
         avg_sentiment = total / count if count > 0 else 0.0
 
-        # Determine base price: use the last_value passed in if available,
-        # otherwise read the last CSV row as before
+        # Determine base price: use the last_value passed in if available, otherwise read the last CSV row as before
         if last_value is None:
             if os.path.exists("data.csv"):
                 try:
