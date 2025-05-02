@@ -1,6 +1,6 @@
 # Stock Oracle Group
 # 4/30/2025
-# File for the predicted graph functionality using the default predictor or an alternative predictor
+# File for the predicted graph functionality
 import datetime
 import numpy as np
 import pandas as pd
@@ -10,8 +10,9 @@ from graph import Graph
 class PredictedGraph(Graph):
 
     def __init__(self, predictor=None, *args, **kwargs):
-        # The alternatives need to have a predict_next_date function or equivalent to be mapped in manually
         super().__init__(*args, **kwargs)
+
+        # Any predictor can be used as long as it has a predict_tomorrow method, equivalents must be mapped manually
         self.predictor = predictor
 
     @staticmethod
@@ -71,7 +72,11 @@ class PredictedGraph(Graph):
             if last_date >= origin_end:
                 break
 
-            next_value = predictions.predict_tomorrow(lag_days)
+            if self.predictor:
+                next_value = self.predictor.predict_tomorrow(lag_days)
+            else:
+                next_value = predictions.predict_tomorrow(lag_days)
+
             next_date  = last_date + datetime.timedelta(days=1)
             predictions.data.append((next_date.strftime("%Y-%m-%d"), next_value))
 
