@@ -1,7 +1,6 @@
 # Stock Oracle Group
 # 4/9/2025
 # Main control script for the stock oracle project
-
 import os
 import pandas as pd
 import dash
