@@ -20,9 +20,8 @@ app = dash.Dash(
     suppress_callback_exceptions=True,
 )
 
-# Instantiate PredictedGraph instead of Graph
+# Instantiate PredictedGraph
 graph_instance = PredictedGraph(data=[])
-
 app.layout = dbc.Container(fluid=True, children=[
 
     # Navbar
@@ -200,7 +199,7 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
     # Always re-read CSV so graph_instance.data is up to date
     graph_instance.read_csv()
 
-    # Base “tomorrow” text (used in both modes)
+    # Base tomorrow text
     prediction_text = (
         f"Tomorrow's predicted closing value: "
         f"{graph_instance.predict_tomorrow(lag_days):.2f}"
@@ -208,7 +207,8 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
 
     # Default (autoregressive) mode
     if analysis_type is None or analysis_type.lower() == "default":
-        # ensure we drop any sentimental predictor so we get back to your polynomial AR model
+
+        # ensure we drop any sentimental predictor so we get back to the default model after switching
         graph_instance.predictor = None
         try:
             confidence, prediction_graph = graph_instance.check_confidence(
@@ -347,7 +347,6 @@ def update_news(ticker):
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
     return news_elements
-
 
 # Callback for object visibility
 @app.callback(
