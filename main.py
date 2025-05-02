@@ -193,6 +193,7 @@ def check_confidence_callback(n_clicks, n_submit, days, lag_days):
         f"{graph_instance.predict_tomorrow(lag_days):.2f}"
     )
 
+    # Try to make predictions
     try:
         confidence, prediction_graph = graph_instance.check_confidence(
             days, lag_days, return_graph=True
@@ -229,14 +230,20 @@ def check_confidence_callback(n_clicks, n_submit, days, lag_days):
     prevent_initial_call=True
 )
 def update_news(ticker):
+
+    # Get the news
     if not ticker:
         return html.P("Please enter a ticker symbol.")
     news = get_yahoo_finance_news(ticker)
     news_elements = []
+
+    # Display the news
     if news:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
         news_elements.append(html.Hr())
         headers = {'User-Agent': 'Mozilla/5.0'}
+
+        # Fetch titles and sentiments for each article
         for article in news:
             try:
                 req = Request(article['url'], headers=headers)
