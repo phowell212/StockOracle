@@ -290,7 +290,6 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
         return "", "Unknown analysis type selected.", ""
 
 
-
 # Callback for news updates
 @app.callback(
     Output("news-container", "children"),
@@ -347,6 +346,7 @@ def update_news(ticker):
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
     return news_elements
+
 
 # Callback for object visibility
 @app.callback(
