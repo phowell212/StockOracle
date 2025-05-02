@@ -5,7 +5,6 @@ import requests
 from textblob import TextBlob
 from textblob.en import sentiment
 
-
 def get_yahoo_finance_news(stock_symbol):
     url = f"https://query1.finance.yahoo.com/v1/finance/search?q={stock_symbol}"
     headers = {
