@@ -6,6 +6,8 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
+from jmespath.compat import string_type
+
 import predictor
 from graph import Graph
 from fetch_stock_news import get_yahoo_finance_news
@@ -200,9 +202,12 @@ def update_news(ticker):
                 final_title = html_content[title_index: end_index]
             except Exception:
                 final_title = "Error fetching title"
-            news_elements.append(
-                html.A(final_title, href=article['url'], target="_blank",
-                       style={"display": "block", "marginBottom": "10px"})
+
+            sentiment = article.get('sentiment', 'Unknown')
+            news_elements.append(html.Div([
+                html.A(final_title, href=article['url'], target="_blank", style={"fontWeight": "bold"}),
+                html.Span(f" - Sentiment: {sentiment}", style={"marginLeft": "10px", "color": "green" if sentiment == "Positive" else "red" if sentiment == "Negative" else "gray"}),
+                       ], style={"display": "block", "marginBottom": "10px"})
             )
     else:
         news_elements.append(html.P(f"No news found for {ticker.upper()}."))
