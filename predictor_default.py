@@ -100,8 +100,8 @@ class PredictedGraph(Graph):
         real_tail = real_df.tail(days)
 
         # Use the tails to calculate the confidence
-        pred_area = np.trapezoid(pred_tail['Value'])
-        real_area = np.trapezoid(real_tail['Value'])
+        pred_area = np.trapz(pred_tail['Value'])
+        real_area = np.trapz(real_tail['Value'])
         area_diff = abs(pred_area - real_area)
         max_area  = max(pred_area, real_area)
         confidence = 1 - (area_diff / max_area) if max_area != 0 else 0.0
