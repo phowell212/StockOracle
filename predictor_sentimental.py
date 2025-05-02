@@ -1,8 +1,7 @@
-# predictor_sentimental.py
-
 import os
 import pandas as pd
 from fetch_stock_news import get_yahoo_finance_news
+# File for the predictor that uses sentiment analysis of news articles
 
 class PredictorSentimental:
     def __init__(self, ticker: str):
