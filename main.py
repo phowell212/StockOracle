@@ -7,6 +7,7 @@ from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
 from jmespath.compat import string_type
+from numpy.ma.core import less_equal
 
 import predictor
 from graph import Graph
@@ -180,13 +181,24 @@ def update_news(ticker):
     # Fetch news for the ticker
     news = get_yahoo_finance_news(ticker)
 
+    if isinstance(news, dict) and "articles" in news:
+        articles = news["articles"]
+        overall_sentiment = news.get("overall_sentiment", "Unknown")
+    else:
+        articles = news
+        overall_sentiment = "Unknown"
     # Turn the news into a Dash component
     news_elements = []
-    if news:
+    if articles:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
+        news_elements.append(html.P(f"Overall Sentiment Trend: {overall_sentiment}",
+                                    style={"fontWeight": "bold", "color":
+                                           "green" if "Upward" in overall_sentiment else
+                                           "red" if "Downward" in overall_sentiment else
+                                           "gray"}))
         news_elements.append(html.Hr())
         headers = {'User-Agent': 'Mozilla/5.0'}
-        for article in news:
+        for article in articles:
             try:
                 req = Request(article['url'], headers=headers)
                 page = urlopen(req)
