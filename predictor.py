@@ -1,97 +1,108 @@
 # Stock Oracle Group
 # 4/30/2025
-# File for the predictor function and related functions
+# File for the predicted graph functionality using the default predictor or an alternative predictor
 import datetime
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from graph import Graph
 
-def build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
-    df = pd.DataFrame({'y': series})
-    for i in range(1, lags + 1):
-        df[f'lag_{i}'] = df['y'].shift(i)
-    return df.dropna()
+class PredictedGraph(Graph):
 
-def predict_tomorrow(graph_instance: Graph, lag_days) -> float:
-    if not graph_instance.data:
-        graph_instance.read_csv()
+    def __init__(self, predictor=None, *args, **kwargs):
+        # The alternatives need to have a predict_next_date function or equivalent to be mapped in manually
+        super().__init__(*args, **kwargs)
+        self.predictor = predictor
 
-    # Convert graph data to DataFrame
-    df = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    series = df['Value']
+    @staticmethod
+    def build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
 
-    # get the last lagged values
-    lagged = build_lagged_df(series, lag_days)
-    x = lagged[[f'lag_{i}' for i in range(1, lag_days+1)]].to_numpy()
-    y = lagged['y'].to_numpy()
+        # Build a DataFrame with lagged values for autoregression
+        df = pd.DataFrame({'y': series})
+        for i in range(1, lags + 1):
+            df[f'lag_{i}'] = df['y'].shift(i)
+        return df.dropna()
 
-    # fit a linear regression model
-    model = LinearRegression().fit(x, y)
-    last_vals = series.iloc[-lag_days:].to_numpy().reshape(1, -1)
+    def predict_tomorrow(self, lag_days: int) -> float:
 
-    return float(model.predict(last_vals)[0])
+        # Predict the next day's value using a linear regression on lagged values
+        if not self.data:
+            self.read_csv()
 
-def predict_days_ahead(graph_instance: Graph, days: int, lag_days: int) -> Graph:
-    graph_instance.read_csv()
-    full = list(graph_instance.data)
-    n = len(full)
+        # Convert data to DataFrame and set up the series
+        df = pd.DataFrame(self.data, columns=['Date', 'Value'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
+        series = df['Value']
 
-    # Make a new graph for the predictions
-    days = max(1, min(days, n-1))
-    predictions = Graph(data=list(full[: n - days ]))
+        # Make the lagged DataFrame and prepare the data for regression
+        lagged_df = self.build_lagged_df(series, lag_days)
+        x = lagged_df[[f'lag_{i}' for i in range(1, lag_days + 1)]].to_numpy()
+        y = lagged_df['y'].to_numpy()
 
-    # Get start and end dates from original graph data
-    origin_start = datetime.datetime.strptime(graph_instance.data[0][0], "%Y-%m-%d")
-    origin_end = datetime.datetime.strptime(graph_instance.data[-1][0], "%Y-%m-%d")
+        # Fit the linear regression model
+        model = LinearRegression().fit(x, y)
+        last_vals = series.iloc[-lag_days:].to_numpy().reshape(1, -1)
+        return float(model.predict(last_vals)[0])
 
-    # Generate predictions until we reach or exceed the end date
-    while True:
-        last_date = predictions.data[-1][0]
-        if isinstance(last_date, str):
-            last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
+    def predict_days_ahead(self, days: int, lag_days: int) -> 'PredictedGraph':
 
-        if last_date >= origin_end:
-            break
+        if not self.data:
+            self.read_csv()
 
-        val = predict_tomorrow(predictions, lag_days)
-        next_val = last_date + datetime.timedelta(days=1)
-        predictions.data.append((next_val.strftime("%Y-%m-%d"), val))
+        full = list(self.data)
+        n = len(full)
+        days = max(1, min(days, n - 1))
 
-    # Remove any predictions before the original start date
-    predictions.data = [
-        (date, value) for date, value in predictions.data
-        if datetime.datetime.strptime(date, "%Y-%m-%d") >= origin_start
-    ]
+        # Initialize a new PredictedGraph with the historical slice
+        initial_data = full[: n - days]
+        predictions = PredictedGraph(predictor=self.predictor, data=list(initial_data))
 
-    return predictions
+        # Get start and end dates from the original graph data
+        origin_start = datetime.datetime.strptime(full[0][0], "%Y-%m-%d")
+        origin_end   = datetime.datetime.strptime(full[-1][0], "%Y-%m-%d")
 
-def check_confidence(graph_instance: Graph, days: int, lag_days: int, return_graph=False):
-    full_pred = predict_days_ahead(graph_instance, days, lag_days)
+        # Generate predictions iteratively, feeding each new value back in
+        while True:
+            last_date = predictions.data[-1][0]
+            if isinstance(last_date, str):
+                last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
 
-    # Convert both graphs' data to pandas DataFrames
-    pred_df = pd.DataFrame(full_pred.data, columns=['Date', 'Value'])
-    real_df = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
+            if last_date >= origin_end:
+                break
 
-    # Chop off all but the last days of the data
-    pred_df_tail = pred_df.tail(days)
-    real_df_tail = real_df.tail(days)
+            next_value = predictions.predict_tomorrow(lag_days)
+            next_date  = last_date + datetime.timedelta(days=1)
+            predictions.data.append((next_date.strftime("%Y-%m-%d"), next_value))
 
-    # Calculate areas under both curves using trapezoidal integration
-    pred_area = np.trapezoid(pred_df_tail['Value'])
-    real_area = np.trapezoid(real_df_tail['Value'])
+        # Drop any entries before the original start date
+        predictions.data = [
+            (date, value) for date, value in predictions.data
+            if datetime.datetime.strptime(date, "%Y-%m-%d") >= origin_start
+        ]
 
-    # Calculate confidence as 1 - normalized absolute difference between areas
-    area_diff = abs(pred_area - real_area)
-    max_area = max(pred_area, real_area)
-    confidence = 1 - (area_diff / max_area)
+        return predictions
 
-    # Ensure confidence is between 0 and 1
-    confidence = max(0.0, min(1.0, confidence))
+    def check_confidence(self, days: int, lag_days: int, return_graph=False):
 
-    if return_graph:
-        return confidence, full_pred
+        # Get the Dataframes for numpy trapezoid integration
+        full_pred = self.predict_days_ahead(days, lag_days)
+        pred_df = pd.DataFrame(full_pred.data, columns=['Date', 'Value'])
+        real_df = pd.DataFrame(self.data,      columns=['Date', 'Value'])
 
-    return confidence
+        # Chop off the last n days from both DataFrames and save them
+        pred_tail = pred_df.tail(days)
+        real_tail = real_df.tail(days)
+
+        # Use the tails to calculate the confidence
+        pred_area = np.trapezoid(pred_tail['Value'])
+        real_area = np.trapezoid(real_tail['Value'])
+        area_diff = abs(pred_area - real_area)
+        max_area  = max(pred_area, real_area)
+        confidence = 1 - (area_diff / max_area) if max_area != 0 else 0.0
+        confidence = max(0.0, min(1.0, confidence))
+
+        # Return the graph if requested
+        if return_graph:
+            return confidence, full_pred
+        return confidence
