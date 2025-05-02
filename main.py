@@ -7,7 +7,8 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
 
-from predictor import PredictedGraph
+from predictor_default import PredictedGraph
+from predictor_sentimental import PredictorSentimental
 from fetch_stock_news import get_yahoo_finance_news
 from fetch_stock_data import fetch_and_save_data
 from urllib.request import urlopen, Request
@@ -85,23 +86,33 @@ app.layout = dbc.Container(fluid=True, children=[
     ], className="mb-5"),
 
     dbc.Row([
-
         # Left column: days ahead + confidence
-        dbc.Col(width=4, children=[
+        dbc.Col(
             dbc.Card([
                 dbc.CardBody([
                     html.Label("Divergence Point (Days Behind Today)"),
                     dcc.Input(
                         id="past-days-input",
-                        placeholder="Enter number of days",
+                        placeholder="If sentimental, use > 10",
                         className="form-control mb-2"
                     ),
                     html.Label("Days Used in Predictions"),
                     dcc.Input(
                         id="lag-days-input",
-                        placeholder="Enter number of days (Recommended: 20)",
+                        placeholder="Recommended: 20",
                         className="form-control mb-2"
                     ),
+                    html.Label("Analysis Type"),
+                    dcc.Dropdown(
+                        id="analysis-type",
+                        options=[
+                            {"label": "Default", "value": "default"},
+                            {"label": "Sentimental", "value": "sentimental"}
+                        ],
+                        placeholder="Select analysis type",
+                        className="mb-2"
+                    ),
+
                     dbc.Button(
                         "Check Confidence",
                         id="check-confidence-btn",
@@ -109,13 +120,15 @@ app.layout = dbc.Container(fluid=True, children=[
                     ),
                     html.Div(id="confidence-text", className="mt-3"),
                 ])
-            ])
-        ]),
+            ]),
+            width=4
+        ),
 
         # Right column: confidence graph
-        dbc.Col(width=8, children=[
-            html.Div(id="confidence-graph-container")
-        ]),
+        dbc.Col(
+            html.Div(id="confidence-graph-container"),
+            width=8
+        ),
     ]),
 
     # hidden interval to trigger news on page load
@@ -163,63 +176,119 @@ def load_real_data(n_clicks, n_submit, ticker):
         Output("prediction-container", "children")
     ],
     [
-        Input("check-confidence-btn", "n_clicks"),
-        Input("past-days-input", "n_submit")
+        Input("check-confidence-btn", "n_clicks")
     ],
     [
         State("past-days-input", "value"),
-        State("lag-days-input", "value")
+        State("lag-days-input", "value"),
+        State("analysis-type", "value"),
+        State("ticker-input", "value")
     ],
     prevent_initial_call=True
 )
-def check_confidence_callback(n_clicks, n_submit, days, lag_days):
-    # Validate divergence point
+def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
     if not days:
         return "", "Please enter number of days.", ""
     if not os.path.exists("data.csv"):
         return "", "Load real data first.", ""
-
     try:
         days = int(days)
         lag_days = int(lag_days) if lag_days else max(1, days // 2)
     except ValueError:
         return "", "Invalid input: Please enter valid numbers.", ""
 
-    # Ensure data loaded
+    # Always re-read CSV so graph_instance.data is up to date
     graph_instance.read_csv()
+
+    # Base “tomorrow” text (used in both modes)
     prediction_text = (
         f"Tomorrow's predicted closing value: "
         f"{graph_instance.predict_tomorrow(lag_days):.2f}"
     )
 
-    # Try to make predictions
-    try:
-        confidence, prediction_graph = graph_instance.check_confidence(
-            days, lag_days, return_graph=True
-        )
+    # Default (autoregressive) mode
+    if analysis_type is None or analysis_type.lower() == "default":
+        # ensure we drop any sentimental predictor so we get back to your polynomial AR model
+        graph_instance.predictor = None
+        try:
+            confidence, prediction_graph = graph_instance.check_confidence(
+                days, lag_days, return_graph=True
+            )
+            data_predicted = pd.DataFrame(prediction_graph.data, columns=['Date', 'Value'])
+            data_real      = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
 
-        data_predicted = pd.DataFrame(
-            prediction_graph.data, columns=['Date', 'Value']
-        )
-        data_real = pd.DataFrame(
-            graph_instance.data, columns=['Date', 'Value']
-        )
-
-        figure = {
-            "data": [
-                {"x": data_predicted["Date"], "y": data_predicted["Value"], "type": "line", "name": "Predicted"},
-                {"x": data_real["Date"],     "y": data_real["Value"],     "type": "line", "name": "Real"}
-            ],
-            "layout": {
-                "title": f"Prediction for {days} days behind today (using {lag_days} lag days)",
-                "showlegend": True
+            figure = {
+                "data": [
+                    {"x": data_predicted["Date"], "y": data_predicted["Value"],
+                     "type": "line", "name": "Predicted"},
+                    {"x": data_real["Date"],      "y": data_real["Value"],
+                     "type": "line", "name": "Real"}
+                ],
+                "layout": {
+                    "title": f"Prediction for {days} days behind today "
+                             f"(using {lag_days} lag days)",
+                    "showlegend": True
+                }
             }
-        }
+            return dcc.Graph(figure=figure), f"Confidence Interval: {confidence * 100:.2f}%", prediction_text
 
-        return dcc.Graph(figure=figure), f"Confidence Interval: {confidence * 100:.2f}%", prediction_text
+        except Exception as e:
+            return "", f"Error generating predictions: {e}", ""
 
-    except Exception as e:
-        return "", f"Error generating predictions: {e}", ""
+    # Sentimental mode
+    elif analysis_type.lower() == "sentimental":
+        try:
+            # Instantiate and attach the sentiment‐based predictor
+            sentimental_predictor = PredictorSentimental(ticker)
+            graph_instance.predictor = sentimental_predictor
+
+            # Compute confidence and get the extended prediction graph
+            confidence, prediction_graph = graph_instance.check_confidence(
+                days, lag_days, return_graph=True
+            )
+
+            # Build DataFrames for plotting
+            data_predicted = pd.DataFrame(prediction_graph.data, columns=['Date', 'Value'])
+            data_real      = pd.DataFrame(graph_instance.data,     columns=['Date', 'Value'])
+
+            # Assemble the figure
+            figure = {
+                "data": [
+                    {
+                        "x": data_predicted["Date"],
+                        "y": data_predicted["Value"],
+                        "type": "line",
+                        "name": "Predicted"
+                    },
+                    {
+                        "x": data_real["Date"],
+                        "y": data_real["Value"],
+                        "type": "line",
+                        "name": "Real"
+                    }
+                ],
+                "layout": {
+                    "title": (
+                        f"Sentimental Analysis for {days} days behind today "
+                        f"(using {lag_days} lag days)"
+                    ),
+                    "showlegend": True
+                }
+            }
+
+            return (
+                dcc.Graph(figure=figure),
+                f"Confidence Interval: {confidence * 100:.2f}%",
+                prediction_text
+            )
+
+        except Exception as e:
+            return "", f"Error with sentimental predictor: {e}", ""
+
+    # Fallback
+    else:
+        return "", "Unknown analysis type selected.", ""
+
 
 
 # Callback for news updates
