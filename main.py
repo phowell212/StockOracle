@@ -6,7 +6,6 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
-from jmespath.compat import string_type
 
 import predictor
 from graph import Graph
