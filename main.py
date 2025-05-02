@@ -7,11 +7,11 @@ from dash import dcc, html, Input, Output, State
 import os
 import pandas as pd
 
-import predictor
 from graph import Graph
 from fetch_stock_news import get_yahoo_finance_news
 from urllib.request import urlopen, Request
 from predictor import predict_tomorrow
+from predictor import check_confidence
 from fetch_stock_data import fetch_and_save_data
 
 # Initialize the Dash app
@@ -149,7 +149,7 @@ def check_confidence_callback(n_clicks, n_submit, days, lag_days):
     prediction_text = f"Tomorrow's predicted closing value: {predict_tomorrow(graph_instance, lag_days):.2f}"
 
     try:
-        confidence, prediction_graph_instance = predictor.check_confidence(graph_instance, days, lag_days, return_graph=True)
+        confidence, prediction_graph_instance = check_confidence(graph_instance, days, lag_days, return_graph=True)
 
         # Create visualization DataFrames
         data_predicted = pd.DataFrame(prediction_graph_instance.data, columns=['Date', 'Value'])
