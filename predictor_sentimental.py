@@ -15,6 +15,44 @@ import pandas as pd
 from fetch_stock_news import get_yahoo_finance_news
 from predictor_default import PredictedGraph
 
+# Pycharm wanted me to do this
+def get_historical_price(date: pd.Timestamp) -> float:
+    """
+        Retrieves a historical stock price from 'data.csv' for a given date.
+
+        If the date is not found, uses the last available price before the given date,
+        or falls back to the first available or default value.
+
+        Args:
+            date (pd.Timestamp): Date to retrieve the price for.
+
+        Returns:
+            float: Historical price for the date, or a fallback value.
+    """
+    filename = "data.csv"
+    default_price = 100.0
+    if not os.path.exists(filename):
+        return default_price
+
+    df = pd.read_csv(filename)
+    if df.empty or "Date" not in df or "Value" not in df:
+        return default_price
+
+    df["Date"] = pd.to_datetime(df["Date"])
+    # Exact match
+    exact = df[df["Date"] == date]
+    if not exact.empty:
+        return float(exact.iloc[0]["Value"])
+
+    # Otherwise, use last available date before target
+    before = df[df["Date"] < date]
+    if not before.empty:
+        return float(before.iloc[-1]["Value"])
+
+    # Otherwise fallback to first or default
+    return float(df.iloc[0]["Value"]) if not df.empty else default_price
+
+
 class PredictorSentimental:
     """
         A predictor that uses sentiment analysis of recent news headlines to estimate stock price movement.
@@ -44,16 +82,16 @@ class PredictorSentimental:
                 float: The predicted closing price.
         """
         if lag_day_number:
-            # 1) Compute target date for sentiment and base price lookup
+            # Compute target date for sentiment and base price lookup
             today = pd.Timestamp.today().normalize()
             offset = lag_days + lag_day_number
             target_date = today - pd.Timedelta(days=offset)
             target_str = target_date.strftime("%Y-%m-%d")
 
-            # 2) Fetch news for the target date
+            # Fetch news for the target date
             articles = get_yahoo_finance_news(self.ticker, date=target_str)
 
-            # 3) Compute average sentiment score
+            # Compute average sentiment score
             if articles:
                 mapping = {"Positive": 1, "Neutral": 0, "Negative": -1}
                 scores = [mapping.get(a.get("sentiment", "Neutral"), 0) for a in articles]
@@ -61,13 +99,13 @@ class PredictorSentimental:
             else:
                 avg_sentiment = 0.0
 
-            # 4) Determine the base price from historical data.csv
-            base_price = self.get_historical_price(target_date)
+            # Determine the base price from historical data.csv
+            base_price = get_historical_price(target_date)
 
-            # 5) Apply sentiment adjustment: ±25% per sentiment point
+            # Apply sentiment adjustment: ±25% per sentiment point
             return base_price * (1 + 0.25 * avg_sentiment)
 
-        # if no lag day number, use the normal prediction logic
+        # If no lag day number, use the normal prediction logic
         else:
             news = get_yahoo_finance_news(self.ticker)
             if not news:
@@ -136,40 +174,3 @@ class PredictorSentimental:
             days_since_divergence += 1
 
         return predictions
-
-    def get_historical_price(self, date: pd.Timestamp) -> float:
-        """
-            Retrieves a historical stock price from 'data.csv' for a given date.
-
-            If the date is not found, uses the last available price before the given date,
-            or falls back to the first available or default value.
-
-            Args:
-                date (pd.Timestamp): Date to retrieve the price for.
-
-            Returns:
-                float: Historical price for the date, or a fallback value.
-        """
-        filename = "data.csv"
-        default_price = 100.0
-        if not os.path.exists(filename):
-            return default_price
-
-        df = pd.read_csv(filename)
-        if df.empty or "Date" not in df or "Value" not in df:
-            return default_price
-
-        df["Date"] = pd.to_datetime(df["Date"])
-        # Exact match
-        exact = df[df["Date"] == date]
-        if not exact.empty:
-            return float(exact.iloc[0]["Value"])
-
-        # Otherwise, use last available date before target
-        before = df[df["Date"] < date]
-        if not before.empty:
-            return float(before.iloc[-1]["Value"])
-
-        # Otherwise fallback to first or default
-        return float(df.iloc[0]["Value"]) if not df.empty else default_price
-
