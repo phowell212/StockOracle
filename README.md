@@ -20,7 +20,7 @@ Stock Oracle is an interactive web-based dashboard for visualizing stock price t
   - Dash Bootstrap Components
 - **Backend / ML Models**
   - `yfinance` (for stock data)
-  - `scikit-learn` (Linear Regression)
+  - `numpy` (Linear Regression)
   - `TextBlob` (sentiment analysis)
 - **NLP / News Parsing**
   - Yahoo Finance Search API
