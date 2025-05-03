@@ -91,7 +91,7 @@ app.layout = dbc.Container(fluid=True, children=[
                     html.Label("Divergence Point (Days Behind Today)"),
                     dcc.Input(
                         id="past-days-input",
-                        placeholder="If sentimental, use > 10",
+                        placeholder="Enter number of days",
                         className="form-control mb-2"
                     ),
                     html.Label("Days Used in Predictions"),
