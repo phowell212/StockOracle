@@ -1,12 +1,11 @@
 # Stock Oracle Group
 # 4/9/2025
 # Main control script for the stock oracle project
-import os
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
-
+import os
 from predictor_default import PredictedGraph
 from predictor_sentimental import PredictorSentimental
 from fetch_stock_news import get_yahoo_finance_news
@@ -92,7 +91,7 @@ app.layout = dbc.Container(fluid=True, children=[
                     html.Label("Divergence Point (Days Behind Today)"),
                     dcc.Input(
                         id="past-days-input",
-                        placeholder="If sentimental, use > 10",
+                        placeholder="Enter number of days",
                         className="form-control mb-2"
                     ),
                     html.Label("Days Used in Predictions"),
@@ -244,34 +243,20 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
     # Sentimental mode
     elif analysis_type.lower() == "sentimental":
         try:
-            # Instantiate and attach the sentiment‐based predictor
-            sentimental_predictor = PredictorSentimental(ticker)
-            graph_instance.predictor = sentimental_predictor
+            # Ensure we drop any default predictor so we get back to the sentimental model after switching
+            sentiment_predictor = PredictorSentimental(ticker)
+            sentiment_pg = sentiment_predictor.predict_days_ahead(days, lag_days)
+            confidence = sentiment_pg.check_confidence(days, lag_days)
 
-            # Compute confidence and get the extended prediction graph
-            confidence, prediction_graph = graph_instance.check_confidence(
-                days, lag_days, return_graph=True
-            )
-
-            # Build DataFrames for plotting
-            data_predicted = pd.DataFrame(prediction_graph.data, columns=['Date', 'Value'])
-            data_real      = pd.DataFrame(graph_instance.data,     columns=['Date', 'Value'])
+            # Build the dataframes for the graph
+            data_predicted = pd.DataFrame(sentiment_pg.data, columns=['Date', 'Value'])
+            data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
 
             # Assemble the figure
             figure = {
                 "data": [
-                    {
-                        "x": data_predicted["Date"],
-                        "y": data_predicted["Value"],
-                        "type": "line",
-                        "name": "Predicted"
-                    },
-                    {
-                        "x": data_real["Date"],
-                        "y": data_real["Value"],
-                        "type": "line",
-                        "name": "Real"
-                    }
+                    {"x": data_predicted['Date'], "y": data_predicted['Value'], "type": 'line', "name": 'Predicted'},
+                    {"x": data_real['Date'], "y": data_real['Value'], "type": 'line', "name": 'Real'}
                 ],
                 "layout": {
                     "title": (
@@ -282,11 +267,13 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
                 }
             }
 
-            return (
-                dcc.Graph(figure=figure),
-                f"Confidence Interval: {confidence * 100:.2f}%",
-                prediction_text
+            # Generate the prediction using the divergence point
+            prediction_text = (
+                f"Tomorrow's predicted closing value: "
+                f"{sentiment_predictor.predict_tomorrow(lag_days, 0):.2f}"
             )
+
+            return dcc.Graph(figure=figure), f"Confidence Interval: {confidence * 100:.2f}%", prediction_text
 
         except Exception as e:
             return "", f"Error with sentimental predictor: {e}", ""
@@ -310,14 +297,26 @@ def update_news(ticker):
     if not ticker:
         return html.P("Please enter a ticker symbol.")
     news = get_yahoo_finance_news(ticker)
-    news_elements = []
 
-    # Display the news
+    # Check if the news is a dictionary with "articles" key
+    if isinstance(news, dict) and "articles" in news:
+        articles = news["articles"]
+        overall_sentiment = news.get("overall_sentiment", "Unknown")
+    else:
+        articles = news
+        overall_sentiment = "Unknown"
+
+    # Turn the news into a Dash component
+    news_elements = []
     if news:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
+        news_elements.append(html.P(f"Overall Sentiment Trend: {overall_sentiment}",
+                                    style={"fontWeight": "bold", "color":
+                                           "green" if "Upward" in overall_sentiment else
+                                           "red" if "Downward" in overall_sentiment else
+                                           "gray"}))
         news_elements.append(html.Hr())
         headers = {'User-Agent': 'Mozilla/5.0'}
-
         # Fetch titles and sentiments for each article
         for article in news:
             try:

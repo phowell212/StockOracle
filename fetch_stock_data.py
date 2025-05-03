@@ -3,7 +3,6 @@
 # Script to fetch and save stock data using yfinance
 import yfinance as yf
 
-
 def fetch_and_save_data(ticker: str, filename: str = "data.csv"):
     """
         Fetches 1 year of daily historical stock data for the given ticker using Yahoo Finance

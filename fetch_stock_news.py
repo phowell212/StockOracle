@@ -1,42 +1,58 @@
-# Praneeth Sai Ummadisetty
-# 04/08/2025
-# This is function where a particular stock articles are fetched
+# Stock Oracle Group
+# 5/2/2025
+# File for the predictor that fetches news articles from Yahoo Finance and performs sentiment analysis
 import requests
 from textblob import TextBlob
-from textblob.en import sentiment
+import datetime
 
-def get_yahoo_finance_news(stock_symbol):
-    """
-        Fetches the 5 most recent news articles related to the given stock symbol
-        from Yahoo Finance and performs sentiment analysis on the headlines.
-
-        Parameters:
-            stock_symbol (str): The ticker symbol of the stock (e.g., "AAPL").
-
-        Returns:
-            list[dict]: A list of dictionaries, each containing:
-                - title (str): The headline of the news article.
-                - url (str): The link to the full article.
-                - sentiment (str): Sentiment label ("Positive", "Negative", or "Neutral").
-        """
+def get_yahoo_finance_news(stock_symbol: str, date: str = None):
     url = f"https://query1.finance.yahoo.com/v1/finance/search?q={stock_symbol}"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
-        news_items = []
-        for item in data.get("news", [])[:5]:
+        items = data.get("news", [])
+        # Limit to top 5 if no date filter
+        if date is None:
+            items = items[:5]
+
+        news_list = []
+        for item in items:
+            ts = item.get("providerPublishTime")
+            if ts is None:
+                continue
+            pub_date = datetime.datetime.fromtimestamp(ts).date()
+
+            # If a date filter is provided, skip non-matching
+            if date is not None:
+                try:
+                    desired = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+                except ValueError:
+                    # Bad format: ignore filter
+                    desired = None
+                if desired and pub_date != desired:
+                    continue
+
             title = item.get("title", "No title")
             link = item.get("link", "No link")
-            sentiment = TextBlob(title).sentiment.polarity
-            sentiment_label = "Positive" if sentiment > 0 else "Negative" if sentiment < 0 else "Neutral"
-            news_items.append({"title": title, "url": link, "sentiment": sentiment_label})
+            polarity = TextBlob(title).sentiment.polarity
+            sentiment_label = (
+                "Positive" if polarity > 0 else
+                "Negative" if polarity < 0 else
+                "Neutral"
+            )
 
-        return news_items
+            news_list.append({
+                "title": title,
+                "url": link,
+                "sentiment": sentiment_label,
+                "date": pub_date.isoformat()
+            })
 
-    except requests.exceptions.RequestException as e:
+        return news_list
+
+    except requests.RequestException as e:
         print(f"Error fetching news for {stock_symbol}: {e}")
         return []
