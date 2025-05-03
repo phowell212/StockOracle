@@ -6,6 +6,24 @@ from textblob import TextBlob
 import datetime
 
 def get_yahoo_finance_news(stock_symbol: str, date: str = None):
+    """
+        Fetches news articles related to a given stock symbol from Yahoo Finance and analyzes their sentiment.
+
+        Args:
+            stock_symbol (str): The stock ticker symbol (e.g., 'AAPL').
+            date (str, optional): A date string in 'YYYY-MM-DD' format. If provided, only news from this date is returned.
+
+        Returns:
+            list[dict]: A list of dictionaries where each dictionary represents a news article with:
+                - 'title': The article title.
+                - 'url': The link to the article.
+                - 'sentiment': A label indicating the sentiment ('Positive', 'Neutral', or 'Negative').
+                - 'date': The article's publication date in 'YYYY-MM-DD' format.
+
+        Notes:
+            - Limits to 5 most recent articles if no date filter is provided.
+            - Uses TextBlob for sentiment analysis based on the article title.
+    """
     url = f"https://query1.finance.yahoo.com/v1/finance/search?q={stock_symbol}"
     headers = {"User-Agent": "Mozilla/5.0"}
 

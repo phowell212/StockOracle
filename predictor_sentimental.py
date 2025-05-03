@@ -1,16 +1,48 @@
 # Stock Oracle Group
 # 5/5/2025
 # File for the predictor that uses sentiment analysis of news articles
+
+"""
+This module defines a sentiment-based predictor that analyzes news headlines using TextBlob
+to forecast stock price movements. It integrates with Yahoo Finance's unofficial API to
+fetch relevant news articles and maps sentiment polarity to stock price predictions.
+
+The predictor can estimate tomorrow’s price or simulate multiple days ahead using historical data.
+"""
+
 import os
 import pandas as pd
 from fetch_stock_news import get_yahoo_finance_news
 from predictor_default import PredictedGraph
 
 class PredictorSentimental:
+    """
+        A predictor that uses sentiment analysis of recent news headlines to estimate stock price movement.
+    """
+
     def __init__(self, ticker: str):
+        """
+            Initializes the predictor with a stock ticker symbol.
+
+            Args:
+                ticker (str): The stock symbol to analyze (e.g., 'AAPL').
+        """
         self.ticker = ticker
 
     def predict_tomorrow(self, lag_days: int, lag_day_number: int = None) -> float:
+        """
+            Predicts the next day's stock price using sentiment scores from recent news.
+
+            If lag_day_number is provided, it performs a simulation-like prediction for a prior day.
+            Otherwise, it uses current sentiment to predict tomorrow's price.
+
+            Args:
+                lag_days (int): Number of lag days used in the prediction logic.
+                lag_day_number (int, optional): The nth day into the simulation (used for multi-day prediction).
+
+            Returns:
+                float: The predicted closing price.
+        """
         if lag_day_number:
             # 1) Compute target date for sentiment and base price lookup
             today = pd.Timestamp.today().normalize()
@@ -63,6 +95,16 @@ class PredictorSentimental:
             return prediction
 
     def predict_days_ahead(self, days: int, lag_days: int) -> 'PredictedGraph':
+        """
+            Simulates stock predictions for a future window by applying sentiment scores iteratively.
+
+            Args:
+                days (int): Number of days to simulate ahead.
+                lag_days (int): Number of lag days used in the simulation logic.
+
+            Returns:
+                PredictedGraph: A graph object containing the predicted time series.
+        """
         if not os.path.exists("data.csv"):
             return PredictedGraph(predictor=self, data=[])
 
@@ -96,6 +138,18 @@ class PredictorSentimental:
         return predictions
 
     def get_historical_price(self, date: pd.Timestamp) -> float:
+        """
+            Retrieves a historical stock price from 'data.csv' for a given date.
+
+            If the date is not found, uses the last available price before the given date,
+            or falls back to the first available or default value.
+
+            Args:
+                date (pd.Timestamp): Date to retrieve the price for.
+
+            Returns:
+                float: Historical price for the date, or a fallback value.
+        """
         filename = "data.csv"
         default_price = 100.0
         if not os.path.exists(filename):
