@@ -11,6 +11,7 @@ from predictor_sentimental import PredictorSentimental
 from fetch_stock_news import get_yahoo_finance_news
 from fetch_stock_data import fetch_and_save_data
 from urllib.request import urlopen, Request
+from textblob import TextBlob
 
 # Initialize the Dash app
 app = dash.Dash(
@@ -294,8 +295,21 @@ def update_news(ticker):
     if isinstance(news, dict) and "articles" in news:
         articles = news["articles"]
         overall_sentiment = news.get("overall_sentiment", "Unknown")
-    else:
+    elif isinstance(news, list):
         articles = news
+        # Calculate sentiment trend from articles list
+        sentiments = []
+        for article in articles:
+            polarity = TextBlob(article['title']).sentiment.polarity
+            sentiments.append(polarity)
+        avg_polarity = sum(sentiments) / len(sentiments) if sentiments else 0
+        overall_sentiment = (
+            "Upward Trend" if avg_polarity > 0.1 else
+            "Downward Trend" if avg_polarity < -0.1 else
+            "Neutral"
+        )
+    else:
+        articles = []
         overall_sentiment = "Unknown"
 
     # Turn the news into a Dash component
