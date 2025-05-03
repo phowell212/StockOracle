@@ -4,19 +4,6 @@
 import requests
 from textblob import TextBlob
 import datetime
-from bs4 import BeautifulSoup
-
-def extract_article_content(url):
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        page = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(page.content, "html.parser")
-        paragraphs = soup.find_all('p')
-        article_text = " ".join(p.get_text() for p in paragraphs)
-        return article_text.strip()
-    except Exception as e:
-        print(f"Failed to fetch content from {url}: {e}")
-        return ""
 
 def get_yahoo_finance_news(stock_symbol: str, date: str = None):
     url = f"https://query1.finance.yahoo.com/v1/finance/search?q={stock_symbol}"
@@ -50,9 +37,7 @@ def get_yahoo_finance_news(stock_symbol: str, date: str = None):
 
             title = item.get("title", "No title")
             link = item.get("link", "No link")
-            content = extract_article_content(link)
-            text_for_analysis = content if content else title
-            polarity = TextBlob(text_for_analysis).sentiment.polarity
+            polarity = TextBlob(title).sentiment.polarity
             sentiment_label = (
                 "Positive" if polarity > 0 else
                 "Negative" if polarity < 0 else
