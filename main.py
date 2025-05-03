@@ -290,15 +290,16 @@ def update_news(ticker):
         return html.P("Please enter a ticker symbol.")
     news = get_yahoo_finance_news(ticker)
 
+    # Check if the news is a dictionary with "articles" key
     if isinstance(news, dict) and "articles" in news:
         articles = news["articles"]
         overall_sentiment = news.get("overall_sentiment", "Unknown")
     else:
         articles = news
         overall_sentiment = "Unknown"
+
     # Turn the news into a Dash component
     news_elements = []
-    # Display the news
     if news:
         news_elements.append(html.H3(f"News for {ticker.upper()}:"))
         news_elements.append(html.P(f"Overall Sentiment Trend: {overall_sentiment}",
