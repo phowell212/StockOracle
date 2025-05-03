@@ -5,6 +5,18 @@ import yfinance as yf
 
 
 def fetch_and_save_data(ticker: str, filename: str = "data.csv"):
+    """
+        Fetches 1 year of daily historical stock data for the given ticker using Yahoo Finance
+        and saves the data to a CSV file in a format compatible with the Graph class.
+
+        Parameters:
+            ticker (str): The stock ticker symbol (e.g., "AAPL").
+            filename (str): The output CSV filename. Default is "data.csv".
+
+        Returns:
+            None
+    """
+
     # Download 1 year of historical stock data
     df = yf.download(ticker, period="1y", interval="1d")
 

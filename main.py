@@ -137,8 +137,8 @@ app.layout = dbc.Container(fluid=True, children=[
         n_intervals=0,
         max_intervals=1
     ),
+    ])
 
-])
 
 
 # Callback for data fetching and graph generation
@@ -152,6 +152,9 @@ app.layout = dbc.Container(fluid=True, children=[
     prevent_initial_call=True
 )
 def load_real_data(n_clicks, n_submit, ticker):
+    """
+        Load historical stock data and render it as a line graph.
+    """
     ticker = ticker or "AAPL"
     fetch_and_save_data(ticker, "data.csv")
     if os.path.exists("data.csv"):
@@ -186,6 +189,9 @@ def load_real_data(n_clicks, n_submit, ticker):
     prevent_initial_call=True
 )
 def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
+    """
+        Run prediction based on the selected model and visualize confidence graph.
+    """
     if not days:
         return "", "Please enter number of days.", ""
     if not os.path.exists("data.csv"):
@@ -297,7 +303,9 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
     prevent_initial_call=True
 )
 def update_news(ticker):
-
+    """
+        Fetch and display recent headlines and sentiment scores for the given ticker.
+    """
     # Get the news
     if not ticker:
         return html.P("Please enter a ticker symbol.")
@@ -356,6 +364,9 @@ def update_news(ticker):
     prevent_initial_call=True
 )
 def toggle_price_section(n_clicks, ticker):
+    """
+        Show or hide prediction section based on data loading.
+    """
     if ticker and os.path.exists('data.csv'):
         return {'display': 'block'}
     return {'display': 'none'}

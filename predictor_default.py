@@ -8,8 +8,17 @@ from sklearn.linear_model import LinearRegression
 from graph import Graph
 
 class PredictedGraph(Graph):
-
+    """
+       Extends the Graph class to support time-series forecasting using autoregressive linear regression.
+       Enables prediction of future stock prices and evaluation of prediction accuracy.
+    """
     def __init__(self, predictor=None, *args, **kwargs):
+        """
+            Initializes a PredictedGraph object with an optional predictor.
+
+            Parameters:
+                predictor (object): An object with a `predict_tomorrow(lag_days)` method.
+        """
         super().__init__(*args, **kwargs)
 
         # Any predictor can be used as long as it has a predict_tomorrow method, equivalents must be mapped manually
@@ -17,7 +26,16 @@ class PredictedGraph(Graph):
 
     @staticmethod
     def build_lagged_df(series: pd.Series, lags: int) -> pd.DataFrame:
+        """
+            Constructs a DataFrame of lagged variables for autoregressive modeling.
 
+            Parameters:
+                series (pd.Series): Time series data.
+                lags (int): Number of lagged days to include.
+
+            Returns:
+                pd.DataFrame: DataFrame with lagged values.
+        """
         # Build a DataFrame with lagged values for autoregression
         df = pd.DataFrame({'y': series})
         for i in range(1, lags + 1):
@@ -25,7 +43,15 @@ class PredictedGraph(Graph):
         return df.dropna()
 
     def predict_tomorrow(self, lag_days: int) -> float:
+        """
+            Predicts the next day's stock value using linear regression on lagged values.
 
+            Parameters:
+                lag_days (int): Number of lag days to use as features.
+
+            Returns:
+                float: Predicted stock price for the next day.
+        """
         # Predict the next day's value using a linear regression on lagged values
         if not self.data:
             self.read_csv()
@@ -47,7 +73,16 @@ class PredictedGraph(Graph):
         return float(model.predict(last_vals)[0])
 
     def predict_days_ahead(self, days: int, lag_days: int) -> 'PredictedGraph':
+        """
+            Predicts stock prices for a number of days into the future using recursive prediction.
 
+            Parameters:
+                days (int): Number of days to predict ahead.
+                lag_days (int): Number of lagged days to use in prediction.
+
+            Returns:
+                PredictedGraph: New instance with predicted data.
+        """
         if not self.data:
             self.read_csv()
 
@@ -89,7 +124,18 @@ class PredictedGraph(Graph):
         return predictions
 
     def check_confidence(self, days: int, lag_days: int, return_graph=False):
+        """
+            Evaluates how closely the predicted values match actual values using area under the curve comparison.
 
+            Parameters:
+                days (int): Number of days to use for comparison.
+                lag_days (int): Lag days used in prediction.
+                return_graph (bool): If True, also returns the predicted graph.
+
+            Returns:
+                float: Confidence score between 0.0 and 1.0.
+                PredictedGraph (optional): The predicted graph object (if return_graph is True).
+        """
         # Get the Dataframes for numpy trapezoid integration
         full_pred = self.predict_days_ahead(days, lag_days)
         pred_df = pd.DataFrame(full_pred.data, columns=['Date', 'Value'])
