@@ -1,16 +1,11 @@
 # Stock Oracle Group
 # 4/9/2025
 # Main control script for the stock oracle project
-import os
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, Input, Output, State
 import os
-import pandas as pd
-from jmespath.compat import string_type
-from numpy.ma.core import less_equal
-
 from predictor_default import PredictedGraph
 from predictor_sentimental import PredictorSentimental
 from fetch_stock_news import get_yahoo_finance_news
@@ -242,34 +237,20 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
     # Sentimental mode
     elif analysis_type.lower() == "sentimental":
         try:
-            # Instantiate and attach the sentiment‐based predictor
-            sentimental_predictor = PredictorSentimental(ticker)
-            graph_instance.predictor = sentimental_predictor
+            # Ensure we drop any default predictor so we get back to the sentimental model after switching
+            sentiment_predictor = PredictorSentimental(ticker)
+            sentiment_pg = sentiment_predictor.predict_days_ahead(days, lag_days)
+            confidence = sentiment_pg.check_confidence(days, lag_days)
 
-            # Compute confidence and get the extended prediction graph
-            confidence, prediction_graph = graph_instance.check_confidence(
-                days, lag_days, return_graph=True
-            )
-
-            # Build DataFrames for plotting
-            data_predicted = pd.DataFrame(prediction_graph.data, columns=['Date', 'Value'])
-            data_real      = pd.DataFrame(graph_instance.data,     columns=['Date', 'Value'])
+            # Build the dataframes for the graph
+            data_predicted = pd.DataFrame(sentiment_pg.data, columns=['Date', 'Value'])
+            data_real = pd.DataFrame(graph_instance.data, columns=['Date', 'Value'])
 
             # Assemble the figure
             figure = {
                 "data": [
-                    {
-                        "x": data_predicted["Date"],
-                        "y": data_predicted["Value"],
-                        "type": "line",
-                        "name": "Predicted"
-                    },
-                    {
-                        "x": data_real["Date"],
-                        "y": data_real["Value"],
-                        "type": "line",
-                        "name": "Real"
-                    }
+                    {"x": data_predicted['Date'], "y": data_predicted['Value'], "type": 'line', "name": 'Predicted'},
+                    {"x": data_real['Date'], "y": data_real['Value'], "type": 'line', "name": 'Real'}
                 ],
                 "layout": {
                     "title": (
@@ -280,11 +261,13 @@ def check_confidence_callback(n_clicks, days, lag_days, analysis_type, ticker):
                 }
             }
 
-            return (
-                dcc.Graph(figure=figure),
-                f"Confidence Interval: {confidence * 100:.2f}%",
-                prediction_text
+            # Generate the prediction using the divergence point
+            prediction_text = (
+                f"Tomorrow's predicted closing value: "
+                f"{sentiment_predictor.predict_tomorrow(lag_days, 0):.2f}"
             )
+
+            return dcc.Graph(figure=figure), f"Confidence Interval: {confidence * 100:.2f}%", prediction_text
 
         except Exception as e:
             return "", f"Error with sentimental predictor: {e}", ""
